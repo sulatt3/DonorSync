@@ -95,4 +95,4 @@ if run_btn:
             st.error(f"Error in data model: {e}")
 
 else:
-    st.info("👈 Enter a crisis topic in the sidebar and click 'Run Analysis' to start.")
+    st.info("Enter a crisis topic in the sidebar and click 'Run Analysis' to start.")
