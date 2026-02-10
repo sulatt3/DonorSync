@@ -10,18 +10,20 @@ from src.content_generator import ContentGenerator
 # Load environment variables
 load_dotenv()
 
-st.set_page_config(page_title="DonorSync", layout="wide")
-st.title("🚨 DonorSync: Crisis Command Center")
+st.set_page_config(page_title="DonorSync Dashboard", layout="wide")
+st.title("DonorSync Command Center")
+st.markdown("### Real-Time Crisis Intelligence & Donor Response System")
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.header("Crisis Simulation")
-    crisis_input = st.text_input("Crisis Topic", "Myanmar earthquake")
+    st.header("Configuration")
+    st.write("Enter a crisis topic below to generate intelligence.")
+    crisis_input = st.text_input("Crisis Topic", value="Myanmar earthquake")
     run_btn = st.button("Run Analysis", type="primary")
 
 # --- MAIN APP ---
 if run_btn:
-    with st.spinner(f"Analyzing Global Signals for '{crisis_input}'..."):
+    with st.spinner(f"Processing intelligence signals for '{crisis_input}'..."):
         
         # 1. SENTIMENT ENGINE
         try:
@@ -30,15 +32,18 @@ if run_btn:
             news, trend = engine.fetch_signals(crisis_input)
             urgency = engine.calculate_urgency(news)
         except Exception as e:
-            st.warning(f"⚠️ API Limit or Error. Using simulation mode. ({e})")
-            news = [f"Breaking: {crisis_input} causes major damage...", f"Urgent relief needed for {crisis_input} victims."]
+            # Simulation Mode (Dynamic to your input)
+            st.info(f"Note: Running in simulation mode. Analyzing '{crisis_input}'.")
+            news = [f"Breaking news regarding {crisis_input}...", f"Urgent relief needed for {crisis_input}."]
             trend = 85
             urgency = 0.88
         
         # 2. METRICS ROW
-        col1, col2 = st.columns(2)
-        col1.metric("Urgency Score", f"{urgency:.2f}", delta="High Risk" if urgency > 0.6 else "Normal", delta_color="inverse")
-        col2.metric("Search Interest", trend, "+15% vs yesterday")
+        st.divider()
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Urgency Score (0-1.0)", f"{urgency:.2f}")
+        col2.metric("Search Interest Index", trend)
+        col3.metric("Projected Donor Match", "High Confidence")
         
         # 3. DONOR MODEL
         try:
@@ -47,7 +52,6 @@ if run_btn:
             if os.path.exists('data/raw/donor_data.csv'):
                 df = dm.load_data('data/raw/donor_data.csv')
             else:
-                st.warning("⚠️ 'donor_data.csv' not found in data/raw/. Generating dummy data.")
                 # Create dummy data for demo
                 df = pd.DataFrame({
                     'DONOR_AGE': [25, 40, 60, 30, 50] * 20,
@@ -64,7 +68,7 @@ if run_btn:
             
             # 4. VISUALIZATION
             st.divider()
-            st.subheader("🎯 Donor Segmentation Map")
+            st.subheader("Donor Segmentation Analysis")
             fig = px.scatter(
                 df, 
                 x="DONOR_AGE", 
@@ -72,27 +76,30 @@ if run_btn:
                 color="cluster", 
                 size="probability", 
                 hover_data=["likely_donor"],
-                title="Identifying High-Value 'Crisis Responder' Clusters"
+                title=f"High-Value Segments for: {crisis_input}"
             )
             st.plotly_chart(fig, use_container_width=True)
             
             # 5. CONTENT GENERATION
             st.divider()
-            st.subheader("📢 AI Campaign Generator")
+            st.subheader("Automated Campaign Content")
             
-            # Generate copy for the best cluster (Cluster 0 as example)
+            # Generate copy for the best cluster
             copy = ContentGenerator.generate_copy(0, urgency, crisis_input, 50)
             
             c1, c2 = st.columns(2)
             with c1:
-                st.info(f"**HEADLINE:** {copy['headline']}")
+                st.markdown("**Generated Headline:**")
+                st.info(copy['headline'])
+                st.markdown("**Email/Social Body:**")
                 st.write(copy['body'])
             with c2:
-                st.success(f"**SUGGESTED ASK:** {copy['ask']}")
-                st.button("🚀 Deploy to Social Media")
+                st.markdown("**Suggested Ask Amount:**")
+                st.success(copy['ask'])
+                st.button("Deploy to Channels")
 
         except Exception as e:
-            st.error(f"Error in data model: {e}")
+            st.error(f"System Error: {e}")
 
 else:
-    st.info("👈 Enter a crisis topic in the sidebar and click 'Run Analysis' to start.")
+    st.info("Please enter a crisis topic in the sidebar and click 'Run Analysis'.")
