@@ -2,7 +2,6 @@ import streamlit as st
 import os
 import pandas as pd
 import plotly.express as px
-import time
 from dotenv import load_dotenv
 from src.sentiment_engine import SentimentEngine
 from src.donor_model import DonorModel
@@ -11,22 +10,21 @@ from src.content_generator import ContentGenerator
 # Load environment variables
 load_dotenv()
 
-# --- PAGE CONFIG (Clean, no icons) ---
+# --- PAGE CONFIG ---
 st.set_page_config(page_title="DonorSync Enterprise", layout="wide")
 
-# --- CUSTOM CSS (Corporate Look) ---
+# --- CUSTOM CSS (Clean Corporate Look) ---
 st.markdown("""
 <style>
-    .metric-box {
-        background-color: #f0f2f6;
+    .metric-container {
+        border: 1px solid #e6e6e6;
+        padding: 20px;
         border-radius: 5px;
-        padding: 15px;
-        border-left: 5px solid #000;
+        background-color: #ffffff;
     }
-    div[data-testid="stMetricValue"] {
-        font-size: 24px;
+    div[data-testid="stExpander"] details summary p {
         font-weight: 600;
-        color: #333;
+        font-size: 1.1rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -37,120 +35,102 @@ with c1:
     st.title("DonorSync Intelligence Platform")
     st.markdown("**Crisis Response & Donor Segmentation Engine**")
 with c2:
-    st.caption("System Status: Online | Connected to NewsAPI")
+    st.success("System Status: Online | Ready for Analysis")
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("Analysis Parameters")
     crisis_input = st.text_input("Crisis Topic", value="Sudan War")
-    
-    st.markdown("---")
-    st.caption("Filter Criteria")
-    min_gift = st.slider("Minimum Lifetime Giving ($)", 0, 500, 50)
-    
+    min_gift = st.slider("Min. Lifetime Giving ($)", 0, 500, 50)
+    st.divider()
     run_btn = st.button("Execute Analysis", type="primary")
 
 # --- MAIN APP ---
 if run_btn:
-    # 1. PROFESSIONAL LOADING BAR
-    progress_text = "Acquiring global signal data..."
-    my_bar = st.progress(0, text=progress_text)
-    
-    for percent_complete in range(100):
-        time.sleep(0.01) 
-        my_bar.progress(percent_complete + 1, text=progress_text)
-    my_bar.empty()
-
-    try:
-        # 2. LOGIC EXECUTION
-        # Sentiment Engine
+    with st.spinner("Processing intelligence signals..."):
         try:
-            engine = SentimentEngine(os.getenv("NEWS_API_KEY"))
-            news, trend = engine.fetch_signals(crisis_input)
-            urgency = engine.calculate_urgency(news)
-        except:
-            news, trend, urgency = ["Simulated News Data..."], 85, 0.75
+            # 1. SENTIMENT ENGINE
+            try:
+                engine = SentimentEngine(os.getenv("NEWS_API_KEY"))
+                news, trend = engine.fetch_signals(crisis_input)
+                urgency = engine.calculate_urgency(news)
+            except:
+                # Simulation fallback
+                news = [f"Breaking: Conflict escalates in {crisis_input}", f"Aid required immediately for {crisis_input}"]
+                trend = 85
+                urgency = 0.78
 
-        # Donor Model
-        dm = DonorModel()
-        if os.path.exists('data/raw/donor_data.csv'):
-            df = dm.load_data('data/raw/donor_data.csv')
-        else:
-            # Fallback dummy data
-            df = pd.DataFrame({'DONOR_AGE': [30]*100, 'LIFETIME_GIFT_AMOUNT': [100]*100})
-        
-        df = dm.train(df)
-        df = dm.segment(df)
-        
-        # Filter by slider
-        df = df[df['LIFETIME_GIFT_AMOUNT'] > min_gift]
+            # 2. DONOR MODEL
+            dm = DonorModel()
+            if os.path.exists('data/raw/donor_data.csv'):
+                df = dm.load_data('data/raw/donor_data.csv')
+            else:
+                # Dummy data fallback
+                df = pd.DataFrame({'DONOR_AGE': [30]*100, 'LIFETIME_GIFT_AMOUNT': [100]*100})
+            
+            df = dm.train(df)
+            df = dm.segment(df)
+            
+            # Filter
+            df = df[df['LIFETIME_GIFT_AMOUNT'] > min_gift]
 
-        # 3. METRICS DASHBOARD
-        st.divider()
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Crisis Urgency Score", f"{urgency:.2f}", delta="Critical" if urgency > 0.6 else "Stable", delta_color="inverse")
-        col2.metric("Search Volume Index", trend)
-        col3.metric("Qualified Donors", f"{len(df):,}")
-        col4.metric("Est. Pipeline Value", f"${len(df) * 50:,}")
+            # 3. METRICS
+            st.divider()
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Crisis Urgency Score", f"{urgency:.2f}")
+            col2.metric("Search Volume", trend)
+            col3.metric("Qualified Donors", f"{len(df):,}")
+            col4.metric("Est. Pipeline Value", f"${len(df) * 50:,}")
 
-        # 4. SEGMENTATION CHART
-        st.subheader(f"Segmentation Analysis: {crisis_input}")
-        
-        # Convert cluster to string for distinct colors
-        df['Segment'] = "Cluster " + df['cluster'].astype(str)
-        
-        fig = px.scatter(
-            df, 
-            x="DONOR_AGE", 
-            y="LIFETIME_GIFT_AMOUNT", 
-            color="Segment", 
-            size="probability", 
-            hover_data=["likely_donor"],
-            labels={
-                "DONOR_AGE": "Donor Age",
-                "LIFETIME_GIFT_AMOUNT": "Lifetime Giving ($)",
-                "probability": "Conversion Probability"
-            },
-            template="plotly_white", # Cleaner, corporate white background
-            opacity=0.8
-        )
-        fig.update_layout(height=500, margin=dict(l=20, r=20, t=30, b=20))
-        st.plotly_chart(fig, use_container_width=True)
+            # 4. CHART
+            st.subheader(f"Segmentation Analysis: {crisis_input}")
+            df['Segment'] = "Cluster " + df['cluster'].astype(str)
+            
+            fig = px.scatter(
+                df, 
+                x="DONOR_AGE", 
+                y="LIFETIME_GIFT_AMOUNT", 
+                color="Segment", 
+                size="probability", 
+                template="plotly_white",
+                title="Donor Segments by Value & Probability",
+                labels={"DONOR_AGE": "Donor Age", "LIFETIME_GIFT_AMOUNT": "Lifetime Giving ($)"}
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        # 5. CONTENT & DEPLOYMENT
-        st.divider()
-        c1, c2 = st.columns([2, 1])
-        
-        with c1:
-            st.subheader("Campaign Assets")
+            # 5. CAMPAIGN ASSETS (Restored Tabs!)
+            st.divider()
+            c1, c2 = st.columns([2, 1])
+            
             copy = ContentGenerator.generate_copy(0, urgency, crisis_input, 50)
-            
-            tab1, tab2 = st.tabs(["Email Template", "Social Copy"])
-            with tab1:
-                st.markdown("**Subject:**")
-                st.code(copy['headline'], language="text")
-                st.markdown("**Body:**")
-                st.code(copy['body'], language="text")
-            with tab2:
-                st.markdown("**Twitter/X Draft:**")
-                st.code(f"{copy['headline']} #Relief #{crisis_input.replace(' ', '')}", language="text")
 
-        with c2:
-            st.subheader("Deployment")
-            st.write("Initiate outreach to qualified segments.")
-            
-            if st.button("Launch Campaign"):
-                with st.spinner("Syncing with CRM..."):
-                    time.sleep(1.5)
-                st.success("Campaign successfully queued for 1,240 contacts.")
+            with c1:
+                st.subheader("Generated Content Assets")
+                # RESTORED FEATURE: Tabs for cleaner UI
+                tab1, tab2 = st.tabs(["📧 Email Template", "🐦 Social Media"])
+                
+                with tab1:
+                    st.text_input("Subject Line", value=copy['headline'])
+                    st.text_area("Email Body", value=copy['body'], height=150)
+                
+                with tab2:
+                    st.info(f"**Twitter/X Draft:**\n\n{copy['headline']} #Relief #{crisis_input.replace(' ', '')}")
 
-        # 6. AUDIT LOG (Raw Data)
-        with st.expander("View Data Sources"):
-            st.write("Ingested News Signals:")
-            st.dataframe(pd.DataFrame(news, columns=["Headline Source"]), use_container_width=True)
+            with c2:
+                st.subheader("Deployment")
+                st.write("Push campaign to qualified segments.")
+                if st.button("Launch Campaign"):
+                    st.success(f"Campaign queued for {len(df)} contacts.")
 
-    except Exception as e:
-        st.error(f"System Error: {e}")
+            # 6. AUDIT LOG (Restored Data Source View!)
+            st.divider()
+            with st.expander("🔍 View Raw Intelligence Sources"):
+                st.write(f"**Ingested News Signals for '{crisis_input}':**")
+                # Display first 5 news items in a clean table
+                st.table(pd.DataFrame(news[:5], columns=["Headline / Source"]))
+
+        except Exception as e:
+            st.error(f"System Error: {e}")
 
 else:
-    st.info("Ready. Enter parameters in the sidebar to initialize.")
+    st.info("Ready. Enter a crisis topic in the sidebar to begin.")
