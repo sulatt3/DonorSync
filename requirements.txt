@@ -9,3 +9,4 @@ pytrends
 keybert
 plotly
 streamlit
+altair<5
