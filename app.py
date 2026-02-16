@@ -13,7 +13,7 @@ load_dotenv()
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="DonorSync Enterprise", layout="wide")
 
-# --- CUSTOM CSS (Clean Corporate Look) ---
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
     .metric-container {
@@ -21,10 +21,6 @@ st.markdown("""
         padding: 20px;
         border-radius: 5px;
         background-color: #ffffff;
-    }
-    div[data-testid="stExpander"] details summary p {
-        font-weight: 600;
-        font-size: 1.1rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -35,14 +31,14 @@ with c1:
     st.title("DonorSync Intelligence Platform")
     st.markdown("**Crisis Response & Donor Segmentation Engine**")
 with c2:
-    st.success("System Status: Online | Ready for Analysis")
+    st.success("System Status: Online | Ready")
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("Analysis Parameters")
     crisis_input = st.text_input("Crisis Topic", value="Sudan War")
     min_gift = st.slider("Min. Lifetime Giving ($)", 0, 500, 50)
-    st.divider()
+    st.markdown("---") # Replaced st.divider()
     run_btn = st.button("Execute Analysis", type="primary")
 
 # --- MAIN APP ---
@@ -55,7 +51,6 @@ if run_btn:
                 news, trend = engine.fetch_signals(crisis_input)
                 urgency = engine.calculate_urgency(news)
             except:
-                # Simulation fallback
                 news = [f"Breaking: Conflict escalates in {crisis_input}", f"Aid required immediately for {crisis_input}"]
                 trend = 85
                 urgency = 0.78
@@ -65,7 +60,6 @@ if run_btn:
             if os.path.exists('data/raw/donor_data.csv'):
                 df = dm.load_data('data/raw/donor_data.csv')
             else:
-                # Dummy data fallback
                 df = pd.DataFrame({'DONOR_AGE': [30]*100, 'LIFETIME_GIFT_AMOUNT': [100]*100})
             
             df = dm.train(df)
@@ -75,7 +69,7 @@ if run_btn:
             df = df[df['LIFETIME_GIFT_AMOUNT'] > min_gift]
 
             # 3. METRICS
-            st.divider()
+            st.markdown("---") # Replaced st.divider()
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Crisis Urgency Score", f"{urgency:.2f}")
             col2.metric("Search Volume", trend)
@@ -98,15 +92,14 @@ if run_btn:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # 5. CAMPAIGN ASSETS (Restored Tabs!)
-            st.divider()
+            # 5. CAMPAIGN ASSETS
+            st.markdown("---") # Replaced st.divider()
             c1, c2 = st.columns([2, 1])
             
             copy = ContentGenerator.generate_copy(0, urgency, crisis_input, 50)
 
             with c1:
                 st.subheader("Generated Content Assets")
-                # RESTORED FEATURE: Tabs for cleaner UI
                 tab1, tab2 = st.tabs(["📧 Email Template", "🐦 Social Media"])
                 
                 with tab1:
@@ -122,11 +115,10 @@ if run_btn:
                 if st.button("Launch Campaign"):
                     st.success(f"Campaign queued for {len(df)} contacts.")
 
-            # 6. AUDIT LOG (Restored Data Source View!)
-            st.divider()
+            # 6. AUDIT LOG
+            st.markdown("---") # Replaced st.divider()
             with st.expander("🔍 View Raw Intelligence Sources"):
                 st.write(f"**Ingested News Signals for '{crisis_input}':**")
-                # Display first 5 news items in a clean table
                 st.table(pd.DataFrame(news[:5], columns=["Headline / Source"]))
 
         except Exception as e:
